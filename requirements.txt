@@ -1,7 +1,4 @@
-
 fastapi
-uvicorn
-pydantic
-moviepy
-arabic-reshaper
-python-bidi
+uvicorn[standard]
+moviepy==1.0.3
+decorator==4.4.2
