@@ -1,6 +1,0 @@
-fastapi
-uvicorn
-pydantic
-moviepy
-arabic-reshaper
-python-bidi
