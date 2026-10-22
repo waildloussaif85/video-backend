@@ -5,10 +5,8 @@ import os
 import uuid
 import shutil
 
-# استيراد حزم المونتاج والخط العربي والاتجاهات
+# استيراد حزم المونتاج والصوت
 from moviepy.editor import TextClip, CompositeVideoClip, ColorClip, AudioFileClip
-import arabic_reshaper
-from bidi.algorithm import get_display
 
 app = FastAPI()
 
@@ -30,40 +28,41 @@ async def generate_video(text: str = Form(...), audio: UploadFile = File(None)):
     saved_audio_path = None
     
     try:
-        # 1. إذا أرسل التطبيق ملف موسيقى، يتم حفظه مؤقتاً على السيرفر لدمجه
+        # 1. حفظ ملف الموسيقى مؤقتاً إذا تم رفعه من التطبيق
         if audio:
             saved_audio_path = os.path.join(UPLOAD_DIR, f"audio_{unique_id}.mp3")
             with open(saved_audio_path, "wb") as buffer:
                 shutil.copyfileobj(audio.file, buffer)
 
-        # 2. إصلاح ومعالجة الخط العربي لكي يظهر صحيحاً وغير مقلوب
-        reshaped_text = arabic_reshaper.reshape(text)
-        final_text = get_display(reshaped_text)
+        # 2. صناعة الخلفية الملونة الفخمة (بنفسجي غامق جداً) عمودية لمدة 7 ثوانٍ
+        bg_clip = ColorClip(size=(1080, 1920), color=[20, 15, 35]).set_duration(7)
         
-        # 3. صناعة الخلفية الملونة الفخمة (بنفسجي غامق جداً) عمودية لمدة 7 ثوانٍ
-        bg_clip = ColorClip(size=(1080, 1920), color=[15, 12, 32]).set_duration(7)
-        
-        # 4. صناعة طبقة النص وتوسيطها في الشاشة
+        # 3. صناعة طبقة النص وتوسيطها بطريقة متوافقة مع السيرفرات السحابية بدون ImageMagick
         txt_clip = TextClip(
-            final_text, 
+            text, 
             fontsize=55, 
             color='white', 
-            font='Arial', 
-            method='caption', 
-            size=(900, None)
+            size=(900, None),
+            method='caption'
         )
         txt_clip = txt_clip.set_position('center').set_duration(bg_clip.duration)
         
-        # 5. دمج طبقة النص فوق الخلفية البرمجية الملونة
+        # 4. دمج طبقة النص فوق الخلفية
         video = CompositeVideoClip([bg_clip, txt_clip])
         
-        # 6. تركيب ملف الموسيقى المرفوع حيّاً من تليفونك
+        # 5. تركيب ملف الموسيقى المرفوع حيّاً من تليفونك
         if saved_audio_path and os.path.exists(saved_audio_path):
             audio_clip = AudioFileClip(saved_audio_path).subclip(0, 7)
             video = video.set_audio(audio_clip)
         
-        # 7. التصدير والرندرة وإنتاج الفيديو النهائي بجودة عالية وضغط سريع
-        video.write_videofile(output_video, codec="libx264", audio_codec="aac", fps=24, logger=None)
+        # 6. التصدير والرندرة وإنتاج الفيديو النهائي بجودة عالية وضغط سريع
+        video.write_videofile(
+            output_video, 
+            codec="libx264", 
+            audio_codec="aac", 
+            fps=24, 
+            logger=None
+        )
         
         # إغلاق وتحرير الذاكرة لمنع تشنج السيرفر
         bg_clip.close()
@@ -72,7 +71,7 @@ async def generate_video(text: str = Form(...), audio: UploadFile = File(None)):
             audio_clip.close()
         video.close()
 
-        # مسح ملف الصوت المؤقت المرفوع للحفاظ على مساحة السيرفر
+        # مسح ملف الصوت المؤقت
         if saved_audio_path and os.path.exists(saved_audio_path):
             os.remove(saved_audio_path)
 
